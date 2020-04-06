@@ -3,9 +3,11 @@ import sys
 import time
 from bs4 import BeautifulSoup
 
-def Scan(target):
-    robots(target)
-    URL(target)
+globalresults = []
+globalnumbers = []
+globalemails = []
+
+
 
 def robots(target): #we gonna do a respectful time
     response = requests.get(target + "/robots.txt") #post request to get html
@@ -14,83 +16,63 @@ def robots(target): #we gonna do a respectful time
     for i in range(len(robotLines)):
         if robotLines[i].find("Disallow:") >= 0:  #Finding "Disallow:"
             disallowed.append(robotLines[i][10:]) #add to list, minus "Disallow: "
-    print(disallowed)
+    return(disallowed)
 
-def urlRecur(target, path, sTarget, fname):
-    if sTarget.find("http") != -1:
-        target2 = sTarget
-    elif sTarget.find("www") != -1:
-        target2 = sTarget[sTarget.find("www"):len(sTarget)]
-        target2 = "https:" + sTarget
-    elif sTarget.find("/") != 0:
-        target2 = target + "/" + sTarget
+def recur(target, tagTarget):
+    if tagTarget.find("http") != -1:
+        newTarget = tagTarget
+    elif tagTarget.find("www") != -1:
+        newTarget = tagTarget[tagTarget.find("www"):len(tagTarget)]
+        newTarget = "https:" + tagTarget
+    elif tagTarget.find("/") != 0:
+        newTarget = target + "/" + tagTarget
     else:
-        target2 = target + sTarget + ""
-    response = requests.get(target2)
+        newTarget = target + tagTarget + ""
+    response = requests.get(newTarget)
     soup = BeautifulSoup(response.text, "html.parser")
-    allLinkTags = soup.find_all("a")
-    f = open(path+"/"+fname, "w+")
-    if robotsCheck(robotsTXT(target), target2) is False:
-        for link in allLinkTags:
+    allLinks = soup.find_all("a")
+    if robotsCheck(robots(target), newTarget):
+        for link in allLinks:
             text = str(link.get("href"))
-            f.write(text)
-            f.write("\n")
+            globalresults.append(text)
             time.sleep(5)
 
 
-def robotsCheck(robotsDisallowed, target2):
-    x = int(0)
-    for x in robotsDisallowed:
-        if robotsDisallowed[x] == target2:
-            return True
-    return False
+def robotsCheck(disallowed, target2):
+    for x in disallowed:
+        if x == target2:
+            return False
+    return True
 
 
-def urlFinder(target):
+def URLs(target):
     response = requests.get(target)
-    soup = BeautifulSoup(response.text, "html.parser")
-    # ^parse the website into nice-looking html^
-    allLinkTags = soup.find_all("a")  # look for all "a" tags
-    path = input("Where would you like to save this data? ")
-    fname = input("What would you like to call this file? ")
-    ftname = input("What would you like to call the telephone number file? ")
-    fename = input("What would you like to call the email file? ")
-    f = open(path+"/"+fname, "w+")
-    ft = open(path+"/"+ftname, "w+")
-    fe = open(path+"/"+fename, "w+")
-    # ^create or open a file with the user-given names and paths^
-    for link in allLinkTags:
+    soup = BeautifulSoup(response.text, "html.parser") # beautiful soup formats HTML more neatly
+    allLinks = soup.find_all("a")  # look for all </a> tags
+    # create empty lists to store data later
+    results = []
+    numbers = []
+    emails = []
+    for link in allLinks:
         if link.get("href").find("mailto") != -1:  # find email addresses
-            fe.write(link.get("href"))  # and write to the email file
-            f.write("\n")
-            time.sleep(.5)  # wait a little bit
+            emails.append(link.get("href"))  # save to email list
         elif link.get("href").find("@") != -1:  # find email addresses
-            fe.write(link.get("href"))  # and write to the email file
-            f.write("\n")
-            time.sleep(.5)
+            emails.append(link.get("href"))  # save to email list
         elif link.get("href").find("tel") != -1:  # find phone numbers
-            ft.write(link.get("href"))  # and write to phone file
-            ft.write("\n")
-            time.sleep(.5)
+            numbers.append(link.get("href"))  # save to phone number list
         else:
-            f.write(link.get("href"))  # find and write links
-            f.write(":")
-            f.write("\n")
-            urlRecur(target, path, link.get("href"), fname)
-            # ^recursively do the same thing^
-            f.write("\n\n")
-    f.close()  # close all the files - good practice
-    ft.close()
-    fe.close()
+            results.append(link.get("href"))  # save anything not already saved
+            recur(target, link.get("href")) # search recursively for more links
+    globalresults.append(results)
+    globalnumbers.append(numbers)
+    globalemails.append(emails)
 
+def Scan(target):
+    robots(target)
+    URLs(target)
+    print(globalresults)
+    print(globalnumbers)
+    print(globalemails)
 
-def httpCheck(target):  # make sure there's an http in front of the target
-    if target.find("http") == -1:
-        return "http://" + target
-    else:
-        return target
-
-
-# print("Input your target website:")
 target = "http://stemk12.org"
-urlFinder(target)
+Scan(target)
